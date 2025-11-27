@@ -66,37 +66,34 @@ jobs:
           -e DB_PASS=${{ secrets.DB_PASS }} \
           -e DB_NAME=${{ secrets.DB_NAME }} \
           kiosk-app
-        sleep 15  # Give app more time to start
 
-    - name: Check container logs
+    - name: Wait and check container status
       run: |
-        echo "=== Container Logs ==="
-        docker logs test-kiosk
-        echo "=== End Logs ==="
+        echo "Waiting for container to start..."
+        sleep 10
+        echo "Checking container status:"
+        docker ps -a
+        echo "Checking container logs:"
+        docker logs test-kiosk || true
 
-    - name: Wait for app to be ready
+    - name: Extended wait and diagnostics
       run: |
-        echo "Waiting for app to be ready..."
-        timeout=60
-        while [ $timeout -gt 0 ]; do
-          if curl -s http://localhost:5000/health >/dev/null; then
-            echo "App is ready!"
-            break
-          fi
-          echo "Still waiting... ($timeout seconds left)"
-          sleep 2
-          timeout=$((timeout - 2))
-        done
-        if [ $timeout -eq 0 ]; then
-          echo "App failed to start in time"
-          exit 1
-        fi
-
-    - name: Health check
+        echo "Waiting additional time for app to be ready..."
+        sleep 30
+        echo "Container status after extended wait:"
+        docker ps -a
+        echo "Container logs after extended wait:"
+        docker logs test-kiosk || true
+        
+        # Try to check if the app is responding
+        echo "Attempting to check app health:"
+        curl -v http://localhost:5000/health || echo "Curl failed"
+        
+    - name: Final health check
       run: |
-        response=$(curl -s http://localhost:5000/health)
+        response=$(curl -s http://localhost:5000/health || echo "failed")
         echo "Response: $response"
-        if echo "$response" | grep -q '"status":"ok"'; then
+        if [ "$response" != "failed" ] && echo "$response" | grep -q '"status":"ok"'; then
           echo "✅ Health check passed"
         else
           echo "❌ Health check failed"
