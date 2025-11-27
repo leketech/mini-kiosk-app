@@ -40,16 +40,45 @@ def init_db():
     print("❌ Database not reachable after retries. Exiting.")
     exit(1)
 
+def ensure_db_initialized():
+    """Ensure database is initialized without exiting the application."""
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute('''
+            CREATE TABLE IF NOT EXISTS visits (
+                id SERIAL PRIMARY KEY,
+                count INT DEFAULT 1
+            );
+        ''')
+        cur.execute('SELECT COUNT(*) FROM visits;')
+        if cur.fetchone()[0] == 0:
+            cur.execute('INSERT INTO visits (count) VALUES (0);')
+        conn.commit()
+        cur.close()
+        conn.close()
+        return True
+    except Exception as e:
+        print(f"⚠️ Database initialization failed: {e}")
+        return False
+
 @app.route('/')
 def home():
-    conn = get_db_connection()
-    cur = conn.cursor()
-    cur.execute('UPDATE visits SET count = count + 1 WHERE id = 1 RETURNING count;')
-    new_count = cur.fetchone()[0]
-    conn.commit()
-    cur.close()
-    conn.close()
-    return f"Hello from Kiosk! You are visitor #{new_count}"
+    try:
+        # Try to ensure DB is initialized
+        if not ensure_db_initialized():
+            return "Database connection error", 500
+            
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute('UPDATE visits SET count = count + 1 WHERE id = 1 RETURNING count;')
+        new_count = cur.fetchone()[0]
+        conn.commit()
+        cur.close()
+        conn.close()
+        return f"Hello from Kiosk! You are visitor #{new_count}"
+    except Exception as e:
+        return f"Database error: {str(e)}", 500
 
 @app.route('/health')
 def health():
@@ -64,4 +93,3 @@ def health():
 if __name__ == '__main__':
     init_db()  # ✅ call this directly, not with a decorator
     app.run(host='0.0.0.0', port=5000)
-
