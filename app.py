@@ -6,11 +6,17 @@ import time
 app = Flask(__name__)
 
 def get_db_connection():
+    host = os.getenv('DB_HOST', 'localhost')
+    database = os.getenv('DB_NAME', 'kioskdb')
+    user = os.getenv('DB_USER', 'kioskuser')
+    password = os.getenv('DB_PASS', 'securepass123')
+    
+    print(f"Connecting to database: host={host}, database={database}, user={user}")
     conn = psycopg2.connect(
-        host=os.getenv('DB_HOST', 'localhost'),
-        database=os.getenv('DB_NAME', 'kioskdb'),
-        user=os.getenv('DB_USER', 'kioskuser'),
-        password=os.getenv('DB_PASS', 'securepass123')
+        host=host,
+        database=database,
+        user=user,
+        password=password
     )
     return conn
 
@@ -18,8 +24,10 @@ def init_db():
     """Wait for the DB to be ready and initialize the table."""
     for i in range(10):  # retry up to 10 times
         try:
+            print(f"Attempting to connect to database... (attempt {i+1}/10)")
             conn = get_db_connection()
             cur = conn.cursor()
+            print("Creating visits table if it doesn't exist...")
             cur.execute('''
                 CREATE TABLE IF NOT EXISTS visits (
                     id SERIAL PRIMARY KEY,
@@ -27,7 +35,10 @@ def init_db():
                 );
             ''')
             cur.execute('SELECT COUNT(*) FROM visits;')
-            if cur.fetchone()[0] == 0:
+            count = cur.fetchone()[0]
+            print(f"Found {count} rows in visits table")
+            if count == 0:
+                print("Inserting initial row...")
                 cur.execute('INSERT INTO visits (count) VALUES (0);')
             conn.commit()
             cur.close()
@@ -86,10 +97,13 @@ def health():
         conn = get_db_connection()
         conn.close()
         db_ok = True
-    except:
+    except Exception as e:
+        print(f"Health check failed: {e}")
         db_ok = False
     return jsonify(status="ok", db_connected=db_ok)
 
 if __name__ == '__main__':
+    print("Starting Kiosk application...")
     init_db()  # ✅ call this directly, not with a decorator
-    app.run(host='0.0.0.0', port=5000)
+    print("Starting Flask server...")
+    app.run(host='0.0.0.0', port=5000, debug=True)
