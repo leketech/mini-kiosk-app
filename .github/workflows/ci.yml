@@ -93,6 +93,8 @@ jobs:
           echo "Response: $response"
           if [ "$response" != "failed" ] && echo "$response" | grep -q '"status":"ok"'; then
             echo "✅ Health check passed"
+          elif [ "$response" != "failed" ] && echo "$response" | grep -q '"status": "ok"'; then
+            echo "✅ Health check passed"
           else
             echo "❌ Health check failed"
             exit 1
