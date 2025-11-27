@@ -65,7 +65,6 @@ jobs:
           -e DB_USER=${{ secrets.DB_USER }} \
           -e DB_PASS=${{ secrets.DB_PASS }} \
           -e DB_NAME=${{ secrets.DB_NAME }} \
-          --add-host=host.docker.internal:host-gateway \
           kiosk-app
 
     - name: Wait and check container status
