@@ -9,6 +9,20 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: ${{ secrets.DB_USER }}
+          POSTGRES_PASSWORD: ${{ secrets.DB_PASS }}
+          POSTGRES_DB: ${{ secrets.DB_NAME }}
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
 
     steps:
     - name: Checkout code
@@ -25,6 +39,12 @@ jobs:
         pip install -r requirements.txt
 
     - name: Run unit tests
+      env:
+        DB_HOST: localhost
+        DB_PORT: 5432
+        DB_USER: ${{ secrets.DB_USER }}
+        DB_PASS: ${{ secrets.DB_PASS }}
+        DB_NAME: ${{ secrets.DB_NAME }}
       run: python test_app.py
 
   docker-build:
@@ -40,7 +60,12 @@ jobs:
 
     - name: Run container in background
       run: |
-        docker run -d --name test-kiosk -p 5000:5000 kiosk-app
+        docker run -d --name test-kiosk -p 5000:5000 \
+          -e DB_HOST=host.docker.internal \
+          -e DB_USER=${{ secrets.DB_USER }} \
+          -e DB_PASS=${{ secrets.DB_PASS }} \
+          -e DB_NAME=${{ secrets.DB_NAME }} \
+          kiosk-app
         sleep 10  # Give app time to start
 
     - name: Health check
